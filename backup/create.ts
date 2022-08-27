@@ -14,7 +14,7 @@ console.log(SB_URL, SB_TOKEN);
 
 var sb = new supabaseClient(SB_URL, SB_TOKEN);
 
-var tables = [ "mikki_pages", "mikki_changes", "mikki_accounts" ]
+var tables = ["mikki_pages", "mikki_changes", "mikki_accounts"];
 
 var backup: any = {};
 

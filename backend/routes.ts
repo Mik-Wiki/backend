@@ -1,6 +1,7 @@
 import { Router } from "https://deno.land/x/simple_router@0.8/router.ts";
-import { accounts_table, changelog_table, pages_table } from "./index.ts";
+import { accounts_table, changelog_table, client, pages_table } from "./index.ts";
 import * as bcrypt from "https://deno.land/x/bcrypt@v0.2.4/mod.ts";
+import { MikkiAccountOptions } from "https://deno.land/x/mikki@0.10/mod.ts";
 
 const ri: ResponseInit = {
 	headers: {
@@ -51,16 +52,7 @@ async function page_get_handler(req: Request): Promise<Response> {
 }
 
 async function page_changelog_handler(req: Request): Promise<Response> {
-	function compare(a: any, b: any) {
-		if (a.when < b.when) {
-			return -1;
-		}
-		if (a.when > b.when) {
-			return 1;
-		}
-		return 0;
-	}
-	return new Response(JSON.stringify((await changelog_table.items().all() as any[]).sort(compare), null, 4), ri);
+	return new Response(JSON.stringify(await client.changes(), null, 4), ri);
 }
 
 async function changelog_log(action: string) {
@@ -71,30 +63,13 @@ async function changelog_log(action: string) {
 }
 
 async function account_create(req: Request): Promise<Response> {
-	var json = await req.json() as {
-		password: string;
-		username: string;
-	};
+	var json = await req.json() as MikkiAccountOptions;
 
-	var hash = bcrypt.hashSync(json.password);
-	var token = String(Math.floor(Math.random() * 10000000000000));
-
-	var user = {
-		username: json.username,
-		password_hash: hash,
-		token: token,
-		editor: false,
-	};
-
-	if ((await accounts_table.items().get("username", user.username) as any[]).length != 0) {
-		throw new Error("User already exsists!");
-	}
-
-	await accounts_table.items().add(user);
+	var account = await client.account_create(json);
 
 	return new Response(
 		JSON.stringify({
-			token: token,
+			token: account.token,
 		}),
 		ri,
 	);
@@ -103,7 +78,7 @@ async function account_create(req: Request): Promise<Response> {
 async function account_check(req: Request): Promise<Response> {
 	var token = await req.text();
 
-	if ((await accounts_table.items().get("token", token) as any[]).length != 0) {
+	if (await client.account_get_token(token)) {
 		return new Response(JSON.stringify(true), ri);
 	} else {
 		return new Response(JSON.stringify(false), ri);
@@ -111,47 +86,26 @@ async function account_check(req: Request): Promise<Response> {
 }
 
 async function account_login(req: Request): Promise<Response> {
-	var json = await req.json() as {
-		password: string;
-		username: string;
-	};
+	var json = await req.json() as MikkiAccountOptions;
 
-	var user = (await accounts_table.items().get("username", json.username))[0] as {
-		username: string;
-		password_hash: string;
-		token: string;
-		editor: string;
-	};
-
-	if (!user) {
-		throw new Error("User not found!");
-	}
-
-	if (!bcrypt.compareSync(json.password, user.password_hash)) {
-		throw new Error("Invalid password!");
-	}
+	var account = await client.account_check(json);
 
 	return new Response(
 		JSON.stringify({
-			token: user.token,
+			token: account.token,
 		}),
 		ri,
 	);
 }
 
 async function is_editor(token: string) {
-	var user = (await accounts_table.items().get("token", token))[0] as {
-		username: string;
-		password_hash: string;
-		token: string;
-		editor: string;
-	};
+	var account = await client.account_get_token(token);
 
-	if (!user) {
+	if (!account) {
 		throw new Error("Invalid token!");
 	}
 
-	return user.editor;
+	return account.editor;
 }
 
 async function page_create_handler(req: Request): Promise<Response> {
