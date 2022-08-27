@@ -2,7 +2,7 @@ import { supabaseClient } from "https://deno.land/x/supabase_deno@v1.0.5/mod.ts"
 import { create, ErrorMode, set_logger } from "https://deno.land/x/simple_router@0.8/mod.ts";
 import { serve } from "https://deno.land/std@0.152.0/http/mod.ts";
 import { init_routes } from "./routes.ts";
-import { MikkiClient } from "https://deno.land/x/mikki@0.10/mod.ts";
+import { MikkiClient } from "https://deno.land/x/mikki@0.11/mod.ts";
 
 var SB_URL = Deno.env.get("SB_URL");
 if (!SB_URL) {

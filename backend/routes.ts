@@ -1,7 +1,7 @@
 import { Router } from "https://deno.land/x/simple_router@0.8/router.ts";
 import { accounts_table, changelog_table, client, pages_table } from "./index.ts";
 import * as bcrypt from "https://deno.land/x/bcrypt@v0.2.4/mod.ts";
-import { MikkiAccountOptions } from "https://deno.land/x/mikki@0.10/mod.ts";
+import { MikkiAccountOptions } from "https://deno.land/x/mikki@0.11/mod.ts";
 
 const ri: ResponseInit = {
 	headers: {
@@ -12,7 +12,7 @@ const ri: ResponseInit = {
 async function page_list_handler(req: Request): Promise<Response> {
 	return new Response(
 		JSON.stringify(
-			(await pages_table.items().all() as any[]).map((e) => {
+			(await client.pages()).map((e: any) => {
 				e.meta.page_id = e.id;
 				return e.meta;
 			}),
@@ -29,11 +29,10 @@ async function page_get_handler(req: Request): Promise<Response> {
 		return not_implemented_handler(req);
 	}
 
-	if (!url.searchParams.has("page_id")) {
-		return new Response("Missing page_id!", ri);
+	var entry = (await client.page(url.searchParams.get("page_id") as string));
+	if (!entry) {
+		throw new Error("Not found!");
 	}
-
-	var entry = (await pages_table.items().get("id", url.searchParams.get("page_id") as string))[0];
 
 	return new Response(
 		encodeURIComponent(JSON.stringify(
@@ -53,13 +52,6 @@ async function page_get_handler(req: Request): Promise<Response> {
 
 async function page_changelog_handler(req: Request): Promise<Response> {
 	return new Response(JSON.stringify(await client.changes(), null, 4), ri);
-}
-
-async function changelog_log(action: string) {
-	return changelog_table.items().add({
-		when: new Date().getTime(),
-		what: action,
-	});
 }
 
 async function account_create(req: Request): Promise<Response> {
@@ -122,29 +114,15 @@ async function page_create_handler(req: Request): Promise<Response> {
 		throw new Error("You cant edit this!");
 	}
 
-	var meta = {
-		page_created: new Date().getTime(),
-		page_edited: new Date().getTime(),
-		page_title: page_title,
-	};
-
-	var id = String(Math.floor(Math.random() * 10000000000000));
-
-	await pages_table.items().add({
-		id: id,
-		text: page_text,
-		meta: meta,
-	});
-
-	await changelog_log(`Page ${page_title} created!`);
+	var page = await client.page_create(page_title, page_text);
 
 	return new Response(
 		encodeURIComponent(JSON.stringify(
 			{
-				...meta,
+				...page.meta,
 				...{
 					page_text: page_text,
-					page_id: id,
+					page_id: page.id,
 				},
 			},
 			null,
@@ -167,11 +145,7 @@ async function page_delete_handler(req: Request): Promise<Response> {
 		throw new Error("You cant edit this!");
 	}
 
-	var page = (await pages_table.items().get("id", page_id))[0];
-
-	await changelog_log(`Page ${page.meta.page_title} deleted!`);
-
-	await pages_table.items().delete("id", page_id);
+	await client.page_delete(page_id);
 
 	return new Response(
 		JSON.stringify(
