@@ -1,7 +1,6 @@
 import { Router } from "https://deno.land/x/simple_router@0.8/router.ts";
-import { accounts_table, changelog_table, client, pages_table } from "./index.ts";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.2.4/mod.ts";
-import { MikkiAccountOptions } from "https://deno.land/x/mikki@0.11/mod.ts";
+import { client } from "./index.ts";
+import { MikkiAccountOptions } from "https://deno.land/x/mikki@0.12/mod.ts";
 
 const ri: ResponseInit = {
 	headers: {
@@ -132,6 +131,48 @@ async function page_create_handler(req: Request): Promise<Response> {
 	);
 }
 
+async function page_edit_handler(req: Request): Promise<Response> {
+	var url = new URL(req.url);
+
+	var page_text = undefined;
+	try {
+		page_text = decodeURIComponent(atob(await req.text()));
+	} catch (e) {}
+
+	var page_title = undefined;
+	try {
+		page_title = decodeURIComponent(atob(url.searchParams.get("page_title") as string));
+	} catch (e) {}
+
+	var page_id = url.searchParams.get("page_id") as string;
+
+	var token = url.searchParams.get("token");
+	if (!token) {
+		throw new Error("Missing token!");
+	}
+
+	if (!(await is_editor(token))) {
+		throw new Error("You cant edit this!");
+	}
+
+	var page = await client.page_update(page_id, page_title, page_text);
+
+	return new Response(
+		encodeURIComponent(JSON.stringify(
+			{
+				...page.meta,
+				...{
+					page_text: page_text,
+					page_id: page.id,
+				},
+			},
+			null,
+			4,
+		)),
+		ri,
+	);
+}
+
 async function page_delete_handler(req: Request): Promise<Response> {
 	var url = new URL(req.url);
 
@@ -167,7 +208,7 @@ export function init_routes(router: Router) {
 	router.add("/", not_implemented_handler, "GET");
 
 	router.add("/api/v2/wiki/page/create", page_create_handler, "POST");
-	router.add("/api/v2/wiki/page/edit", not_implemented_handler, "POST");
+	router.add("/api/v2/wiki/page/edit", page_edit_handler, "POST");
 	router.add("/api/v2/wiki/page/delete", page_delete_handler, "GET");
 
 	router.add("/api/v2/wiki/page/get", page_get_handler, "GET");
