@@ -1,6 +1,6 @@
 import { Router } from "https://deno.land/x/simple_router@0.8/router.ts";
 import { client } from "./index.ts";
-import { MikkiAccountOptions } from "https://deno.land/x/mikki@0.12/mod.ts";
+import { anofile_upload_s, MikkiAccountOptions } from "https://deno.land/x/mikki@0.13/mod.ts";
 
 const ri: ResponseInit = {
 	headers: {
@@ -24,13 +24,17 @@ async function page_list_handler(req: Request): Promise<Response> {
 
 async function page_get_handler(req: Request): Promise<Response> {
 	var url = new URL(req.url);
-	if (url.searchParams.has("download")) {
-		return not_implemented_handler(req);
-	}
+
 
 	var entry = (await client.page(url.searchParams.get("page_id") as string));
 	if (!entry) {
 		throw new Error("Not found!");
+	}
+
+	var file_obj: any = {};
+	if (url.searchParams.has("download")) {
+		let f = await anofile_upload_s(entry.text, entry.meta.page_title + ".md");
+		file_obj.file_url = f.data.file.url.short;
 	}
 
 	return new Response(
@@ -41,6 +45,7 @@ async function page_get_handler(req: Request): Promise<Response> {
 					page_text: entry.text,
 					page_id: entry.id,
 				},
+				...file_obj
 			},
 			null,
 			4,
