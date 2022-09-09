@@ -1,6 +1,7 @@
 import { Router } from "https://deno.land/x/simple_router@0.8/router.ts";
 import { client } from "./index.ts";
 import { anofile_upload_s, MikkiAccountOptions } from "https://deno.land/x/mikki@0.13/mod.ts";
+import * as bcrypt from "https://deno.land/x/bcrypt@v0.2.4/mod.ts";
 
 const ri: ResponseInit = {
 	headers: {
@@ -111,6 +112,25 @@ async function account_login(req: Request): Promise<Response> {
 		JSON.stringify({
 			token: account.token,
 		}),
+		ri,
+	);
+}
+
+async function account_chpasswd(req: Request): Promise<Response> {
+	let json = await req.json() as {
+		token: string;
+		password: string;
+	};
+
+	let account = await client.account_get_token(json.token);
+	if (!account) {
+		throw new Error("Invalid token!");
+	}
+	account.password_hash = bcrypt.hashSync(json.password);
+	await client.account_update(account);
+
+	return new Response(
+		JSON.stringify(account),
 		ri,
 	);
 }
@@ -246,4 +266,5 @@ export function init_routes(router: Router) {
 	router.add("/api/v2/acc/check", account_check, "POST");
 	router.add("/api/v2/acc/info", account_info, "POST");
 	router.add("/api/v2/acc/delete", account_delete, "POST");
+	router.add("/api/v2/acc/chpasswd", account_chpasswd, "POST");
 }
