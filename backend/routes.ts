@@ -38,7 +38,7 @@ async function page_get_handler(req: Request): Promise<Response> {
 	}
 
 	return new Response(
-		encodeURIComponent(JSON.stringify(
+		JSON.stringify(
 			{
 				...entry.meta,
 				...{
@@ -49,7 +49,7 @@ async function page_get_handler(req: Request): Promise<Response> {
 			},
 			null,
 			4,
-		)),
+		),
 		ri,
 	);
 }
@@ -107,8 +107,8 @@ async function is_editor(token: string) {
 async function page_create_handler(req: Request): Promise<Response> {
 	var url = new URL(req.url);
 
-	var page_text = decodeURIComponent(atob(await req.text()));
-	var page_title = decodeURIComponent(atob(url.searchParams.get("page_title") as string));
+	var page_text = atob(await req.text());
+	var page_title = atob(url.searchParams.get("page_title") as string);
 	var token = url.searchParams.get("token");
 	if (!token) {
 		throw new Error("Missing token!");
@@ -141,12 +141,12 @@ async function page_edit_handler(req: Request): Promise<Response> {
 
 	var page_text = undefined;
 	try {
-		page_text = decodeURIComponent(atob(await req.text()));
+		page_text = atob(await req.text());
 	} catch (e) {}
 
 	var page_title = undefined;
 	try {
-		page_title = decodeURIComponent(atob(url.searchParams.get("page_title") as string));
+		page_title = atob(url.searchParams.get("page_title") as string);
 	} catch (e) {}
 
 	var page_id = url.searchParams.get("page_id") as string;
