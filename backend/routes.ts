@@ -91,6 +91,17 @@ async function account_info(req: Request): Promise<Response> {
 	}
 }
 
+async function account_delete(req: Request): Promise<Response> {
+	var token = await req.text();
+	let account = await client.account_get_token(token);
+	if (account) {
+		await client.account_delete(account.username);
+		return new Response(JSON.stringify(true), ri);
+	} else {
+		throw new Error("Invalid token!");
+	}
+}
+
 async function account_login(req: Request): Promise<Response> {
 	var json = await req.json() as MikkiAccountOptions;
 
@@ -234,4 +245,5 @@ export function init_routes(router: Router) {
 	router.add("/api/v2/acc/login", account_login, "POST");
 	router.add("/api/v2/acc/check", account_check, "POST");
 	router.add("/api/v2/acc/info", account_info, "POST");
+	router.add("/api/v2/acc/delete", account_delete, "POST");
 }
