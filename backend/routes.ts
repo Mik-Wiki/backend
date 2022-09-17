@@ -1,6 +1,6 @@
 import { Router } from "https://deno.land/x/simple_router@0.8/router.ts";
 import { client } from "./index.ts";
-import { anofile_upload_s, MikkiAccountOptions } from "https://deno.land/x/mikki@0.13/mod.ts";
+import { anofile_upload_s, MikkiAccountOptions } from "https://deno.land/x/mikki@0.14/mod.ts";
 
 const ri: ResponseInit = {
 	headers: {
