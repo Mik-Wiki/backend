@@ -1,6 +1,7 @@
 import { Router } from "https://deno.land/x/simple_router@0.8/router.ts";
 import { client } from "./index.ts";
 import { anofile_upload_s, MikkiAccountOptions } from "https://deno.land/x/mikki@0.14/mod.ts";
+import * as bcrypt from "https://deno.land/x/bcrypt@v0.2.4/mod.ts";
 
 const ri: ResponseInit = {
 	headers: {
@@ -38,7 +39,7 @@ async function page_get_handler(req: Request): Promise<Response> {
 	}
 
 	return new Response(
-		encodeURIComponent(JSON.stringify(
+		JSON.stringify(
 			{
 				...entry.meta,
 				...{
@@ -49,7 +50,7 @@ async function page_get_handler(req: Request): Promise<Response> {
 			},
 			null,
 			4,
-		)),
+		),
 		ri,
 	);
 }
@@ -81,6 +82,27 @@ async function account_check(req: Request): Promise<Response> {
 	}
 }
 
+async function account_info(req: Request): Promise<Response> {
+	var token = await req.text();
+	let account = await client.account_get_token(token);
+	if (account) {
+		return new Response(JSON.stringify(account), ri);
+	} else {
+		throw new Error("Invalid token!");
+	}
+}
+
+async function account_delete(req: Request): Promise<Response> {
+	var token = await req.text();
+	let account = await client.account_get_token(token);
+	if (account) {
+		await client.account_delete(account.username);
+		return new Response(JSON.stringify(true), ri);
+	} else {
+		throw new Error("Invalid token!");
+	}
+}
+
 async function account_login(req: Request): Promise<Response> {
 	var json = await req.json() as MikkiAccountOptions;
 
@@ -90,6 +112,25 @@ async function account_login(req: Request): Promise<Response> {
 		JSON.stringify({
 			token: account.token,
 		}),
+		ri,
+	);
+}
+
+async function account_chpasswd(req: Request): Promise<Response> {
+	let json = await req.json() as {
+		token: string;
+		password: string;
+	};
+
+	let account = await client.account_get_token(json.token);
+	if (!account) {
+		throw new Error("Invalid token!");
+	}
+	account.password_hash = bcrypt.hashSync(json.password);
+	await client.account_update(account);
+
+	return new Response(
+		JSON.stringify(account),
 		ri,
 	);
 }
@@ -107,8 +148,8 @@ async function is_editor(token: string) {
 async function page_create_handler(req: Request): Promise<Response> {
 	var url = new URL(req.url);
 
-	var page_text = decodeURIComponent(atob(await req.text()));
-	var page_title = decodeURIComponent(atob(url.searchParams.get("page_title") as string));
+	var page_text = atob(await req.text());
+	var page_title = atob(url.searchParams.get("page_title") as string);
 	var token = url.searchParams.get("token");
 	if (!token) {
 		throw new Error("Missing token!");
@@ -141,12 +182,12 @@ async function page_edit_handler(req: Request): Promise<Response> {
 
 	var page_text = undefined;
 	try {
-		page_text = decodeURIComponent(atob(await req.text()));
+		page_text = atob(await req.text());
 	} catch (e) {}
 
 	var page_title = undefined;
 	try {
-		page_title = decodeURIComponent(atob(url.searchParams.get("page_title") as string));
+		page_title = atob(url.searchParams.get("page_title") as string);
 	} catch (e) {}
 
 	var page_id = url.searchParams.get("page_id") as string;
@@ -223,4 +264,7 @@ export function init_routes(router: Router) {
 	router.add("/api/v2/acc/create", account_create, "POST");
 	router.add("/api/v2/acc/login", account_login, "POST");
 	router.add("/api/v2/acc/check", account_check, "POST");
+	router.add("/api/v2/acc/info", account_info, "POST");
+	router.add("/api/v2/acc/delete", account_delete, "POST");
+	router.add("/api/v2/acc/chpasswd", account_chpasswd, "POST");
 }
